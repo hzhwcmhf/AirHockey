@@ -169,7 +169,6 @@ Point Game::GetPuckPosition() const
 
 int Game::Run(int times, double x, double y)
 {
-<<<<<<< HEAD
 	Point playerTarget = Point(x, y);
 	Point opponentTarget = _ai->QueryAction();
 	
@@ -189,14 +188,6 @@ int Game::Run(int times, double x, double y)
 	//ÔÙ´Î·ÅÖÃmallet
 	_playerPos = MoveMallet(_playerPos, playerTarget, _playerBoard);
 	_opponentPos = MoveMallet(_opponentPos, opponentTarget, _opponentBoard);
-
-=======
-	if (x > 2.0001) x = 2;
-	if (x < -2.0001) x = -2;
-	if (y > 1.0001) y = 1;
-	if (y < -1.0001) y = -1;
-	_playerPos = Point(x, y);
->>>>>>> bb128ce81c79063d0695f4051b4617a6cba373f1
 	return 0;
 }
 
