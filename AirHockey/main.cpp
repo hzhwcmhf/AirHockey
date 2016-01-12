@@ -245,7 +245,6 @@ void Display()
 /* 映射鼠标坐标至openGL坐标
 * 坐标位置为鼠标指向的物体表面点坐标
 * copy from http://blog.csdn.net/augusdi/article/details/38597403
-* 当鼠标对应点出界，返回false
 */
 bool GetOGLPos(int x, int y, GLdouble &rx, GLdouble &ry)
 {
@@ -269,7 +268,7 @@ bool GetOGLPos(int x, int y, GLdouble &rx, GLdouble &ry)
 		|| posZ < -0.01 || posZ > G_MalletHeight + 0.01) {
 		// out of table
 		//std::cout << "out1" << std::endl;
-		return false;
+		//return false;
 	}
 	// 修正点击在边界或圆盘上的情况
 	if (posZ > 1e-5 || posZ < -1e-5) {
@@ -283,7 +282,7 @@ bool GetOGLPos(int x, int y, GLdouble &rx, GLdouble &ry)
 		|| posY < -G_tableHeight / 2 - 0.001 || posY > G_tableHeight / 2 + 0.001) {
 		// out of table
 		//std::cout << "out2" << std::endl;
-		return false;
+		//return false;
 	}
 	//std::cout << "real " << posX << " " << posY << " " << posZ << std::endl;
 	rx = posX, ry = posY;
