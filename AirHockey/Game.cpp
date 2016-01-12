@@ -20,14 +20,14 @@ Point Game::GetPuckPosition() const
 
 int Game::Run(int times, double x, double y)
 {
-
+	_playerPos = Point(x, y);
 	return 0;
 }
 
 void Game::Restart()
 {
 	_playerPos = Point(C_malletStartDistance, 0);
-	_opponentPos = Point(C_malletStartDistance, 0);
+	_opponentPos = Point(-C_malletStartDistance, 0);
 	_puckPos = Point(0, 0);
 
 	srand((int)time(0));

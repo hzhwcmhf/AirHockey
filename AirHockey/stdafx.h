@@ -6,3 +6,5 @@
 #include <complex>
 #include <ctime>
 #include <cstdlib>
+#include <cmath>
+#include <Windows.h>

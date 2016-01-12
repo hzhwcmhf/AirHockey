@@ -32,5 +32,14 @@
     <ClInclude Include="Constants.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="include\glut.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="openglConst.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <Library Include="lib\glut32.lib" />
   </ItemGroup>
 </Project>
