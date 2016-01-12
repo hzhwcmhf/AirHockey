@@ -20,9 +20,9 @@ const GLfloat look_scn_dis = 1;
 const GLfloat look_dep_angle = 45; // ∏© ”45deg
 
 const GLfloat light_pos[] = { 0, 1, 30, 1.0 };
-const GLfloat light_ambient[] = { 0.1, 0.2, 0.2, 1.0 };
-const GLfloat light_diffuse[] = { 1.0, 1.0, 1.0, 1.0 };
-const GLfloat light_specular[] = { 0.1, 0.1, 0.1, 1.0 };
+const GLfloat light_ambient[] = { 0.1f, 0.2f, 0.2f, 1.0f };
+const GLfloat light_diffuse[] = { 1.0f, 1.0f, 1.0f, 1.0f };
+const GLfloat light_specular[] = { 0.1f, 0.1f, 0.1f, 1.0f };
 const GLfloat mat_specular[] = { 0.0, 0.0, 0.0, 1.0 };
 const GLfloat mat_emission[] = { 0.0, 0.0, 0.0, 1.0 };
 
