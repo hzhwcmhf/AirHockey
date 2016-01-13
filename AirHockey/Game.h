@@ -57,15 +57,17 @@ private:
 	AI *_ai;
 
 	const double C_maxTimeInterval = 1;
-	const double C_minDistance = 1e-6;
+	
 
 	void QueryBoardDistance(const Point &s, const Point &e, const Point p[4], double res[4]);
 	double QueryBoardDistance(const Point &s, const Point &e, const Point p[4]);
 
-	Point MoveMallet(const Point &s, const Point &e, const Point p[4]);
+	std::tuple<double, std::function<void(Point&)>> TestMalletCollisionWithPuck(const Point &s, const Point &e);
+	std::tuple<double, std::function<void(Point&)>> TestMalletCollisionWithBoard(const Point &s, const Point &e, const Point p[4]);
+	void MoveMallet(const Point &s, const Point &e, const Point p[4], Point &malletPos);
 
-	double TestPuckCollisionWithBoard(const Point &s, const Point &e, const Point p[4]);
-	double TestPuckCollisionWithMallet(const Point &s, const Point &e, const Point &o);
+	std::tuple<double, std::function<void()>> TestPuckCollisionWithBoard(const Point & s, const Point & e, const Point p[4]);
+	std::tuple<double, std::function<void()>> TestPuckCollisionWithMallet(const Point &s, const Point &e, const Point &o);
 	double MovePuck(double maxTime);
 	
 	void TestWin(int pos);
