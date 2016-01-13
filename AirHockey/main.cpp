@@ -71,6 +71,7 @@ int main(int argc, char **argv)
 	glutSpecialFunc(SpecialKeys);
 	glutMouseFunc(Mouse);
 	glutPassiveMotionFunc(OnMouseMove);
+	glutMotionFunc(OnMouseMove);
 
 	glutTimerFunc(GAME_DELTA_TIME, Update, 0);
 
@@ -552,6 +553,7 @@ void OnMouseMove(int x, int y)
 
 void Mouse(int button, int state, int x, int y)
 {
+	mouseXrec = x, mouseYrec = y;
 	//std::cout << state << " " << button << std::endl;
 	if (button == GLUT_LEFT_BUTTON && state == GLUT_DOWN) {
 		// left mouse btn down
