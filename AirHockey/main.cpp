@@ -8,30 +8,33 @@
 #include "Constants.h"
 #include "Game.h"
 
+/* 游戏当前模式 */
 enum GameModeType {
-	MainWindow,
-	Gaming,
-	Goal,
-	Win
+	MainWindow, // 主界面
+	Gaming, // 游戏界面
+	Goal, // 得分界面
+	Win, // 胜利界面
+	Pause // 暂停界面
 };
 
-int debugVar = 0;
+Game *game; // 游戏逻辑模块
+GameModeType gameMode; // 当前游戏模式
+int score1, score2; // 双方得分，1玩家，2AI
+int flashCount; // 用于主界面和暂停界面的闪烁
+int waitingTime; // 每轮游戏开始延迟等待时间剩余
+int roundSet; // 胜利所需轮数
+int aiLevel; // AI难度
+int winner; // 胜利者
 
-Game *game;
-GameModeType gameMode;
-int score1, score2;
-int flashCount;
-int roundSet, winner;
+GLuint floorTexcture; // 地板贴图编号
 
-GLuint floorTexcture;
-
-GLfloat look_eye_dis;
+GLfloat look_eye_dis; // 视点距离原点距离
 GLfloat look_eye[3]; // 视点位置
 GLfloat look_up[3]; // 视点法向
 GLfloat look_center[3]; // 相机中点
-GLfloat lookAngle;
+GLfloat lookAngle; // 视角
 
-int mouseXrec = 0, mouseYrec = 0;
+int mouseXrec, mouseYrec; // 鼠标位置
 
 void Setup(); // 初始化设置openGL及各变量
 void Display(); // 显示
@@ -51,12 +54,7 @@ void Update(int value); // 间隔刷新函数
 
 int main(int argc, char **argv)
 {
-	game = new Game();
-	gameMode = MainWindow;
-	flashCount = 0;
-	roundSet = Game_Round_Init;
-
-	/* init opengl & creat window */
+	/* 初始化openGL */
 	glutInit(&argc, argv);
 	glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH);
 	glutInitWindowSize(MYGL_WINDOW_W, MYGL_WINDOW_H);
@@ -64,7 +62,7 @@ int main(int argc, char **argv)
 	glutCreateWindow(MY_GL_WINDOW_NAME);
 	Setup();
 
-	/* register function */
+	/* 注册回调函数 */
 	glutDisplayFunc(Display);
 	glutReshapeFunc(Reshape);
 	glutKeyboardFunc(Keyboard);
@@ -73,6 +71,7 @@ int main(int argc, char **argv)
 	glutPassiveMotionFunc(OnMouseMove);
 	glutMotionFunc(OnMouseMove);
 
+	/* 间隔刷新函数 */
 	glutTimerFunc(GAME_DELTA_TIME, Update, 0);
 
 	/* main loop */
@@ -80,6 +79,9 @@ int main(int argc, char **argv)
 	return 0;
 }
 
+/* 使用windowAPI读取bmp图片并创建贴图
+ * 读取bmp部分可以使用其他函数代替
+ */
 bool LoadTexture(LPTSTR szFileName, GLuint &texid)   // Creates Texture From A Bitmap File
 {
 	HBITMAP hBMP;       // Handle Of The Bitmap
@@ -104,8 +106,9 @@ bool LoadTexture(LPTSTR szFileName, GLuint &texid)   // Creates Texture From A B
 	return TRUE;       // Loading Was Successful
 }
 
-GLuint WordShowLists = 0;
+GLuint WordShowLists = 0; // openGL显示字符列表，selectFont选择字体时修改，drawString时使用
 
+/* 设置字体 */
 void selectFont(int size, int charset, const char* face) {
 	HFONT hFont = CreateFontA(size, 0, 0, 0, FW_BOLD, 0, 0, 0,
 		charset, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
@@ -120,6 +123,7 @@ void selectFont(int size, int charset, const char* face) {
 	wglUseFontBitmaps(wglGetCurrentDC(), 0, 128, WordShowLists);
 }
 
+/* 绘制字符串 */
 void drawString(const char* str)
 {
 	// 调用每个字符对应的显示列表，绘制每个字符
@@ -130,6 +134,14 @@ void drawString(const char* str)
 
 void Setup()
 {
+	game = new Game();
+	gameMode = MainWindow;
+	flashCount = 0;
+	roundSet = Game_Round_Init;
+	aiLevel = Game_AI_INIT;
+	mouseXrec = mouseYrec = 0;
+	waitingTime = 0;
+
 	// light on
 	glEnable(GL_LIGHTING);
 	glEnable(GL_LIGHT0);
@@ -152,7 +164,6 @@ void Setup()
 
 	// texcture
 	LoadTexture("floor.bmp", floorTexcture);
-	//std::cout << "texture " << floorTexcture << std::endl;
 
 	// other init
 	lookAngle = look_init_angle;
@@ -200,6 +211,9 @@ void glutSolidCylinder(GLfloat red, GLfloat green, GLfloat blue,
 	glTranslatef(0, 0, h);
 	GLUquadricObj *objDisk = gluNewQuadric();
 	gluDisk(objDisk, 0, r, slices, 10);
+	// delete
+	gluDeleteQuadric(objDisk);
+	gluDeleteQuadric(objCylinder);
 	glPopMatrix();
 }
 
@@ -240,9 +254,9 @@ void Display()
 		look_center[0], look_center[1], look_center[2],
 		look_up[0], look_up[1], look_up[2]);
 
-	// floor plane
+	// 绘制地面并贴图
 	{
-		glPushMatrix();
+		//glPushMatrix();
 		glEnable(GL_TEXTURE_2D);
 		glBegin(GL_QUADS);
 		glColor3f(1, 1, 1);
@@ -260,12 +274,12 @@ void Display()
 		glVertex3f(-G_FloorPlaneSize, -G_FloorPlaneSize, -G_TableAltitude);
 		glEnd();
 		glDisable(GL_TEXTURE_2D);
-		glPopMatrix();
+		//glPopMatrix();
 	}
 
-	// table edge & side
+	// 绘制桌面边缘及桌子边框
 	{
-		glPushMatrix();
+		//glPushMatrix();
 		glColor3f(0.93, 0.93, 0.93);
 		// long side
 		glPushMatrix();
@@ -310,12 +324,12 @@ void Display()
 		glScalef(G_TablePly, (G_tableHeight - G_goalWidth) / 2, G_TablePly);
 		glutSolidCube(1);
 		glPopMatrix();
-		glPopMatrix();
+		//glPopMatrix();
 	}
 
-	// table plane
+	// 绘制桌面
 	{
-		glPushMatrix();
+		//glPushMatrix();
 		glBegin(GL_QUADS);
 		//glColor3f(0.4392, 0.7255, 0.3137);
 		glColor3f(0.2902, 0.498, 0.2);
@@ -328,10 +342,47 @@ void Display()
 		glNormal3f(0, 0, 1);
 		glVertex3f(-G_tableWidth / 2, -G_tableHeight / 2, 0);
 		glEnd();
-		glPopMatrix();
+		glColor3f(0.0863, 0.2549, 0.0118);
+		glLineWidth(2);
+		glBegin(GL_LINE_STRIP);
+		glVertex3f(G_tableWidth * (0.5 - GL_MalletRange), G_tableHeight / 2, 0.005);
+		glVertex3f(G_tableWidth * (0.5 - GL_MalletRange), -G_tableHeight / 2, 0.005);
+		glEnd();
+		glBegin(GL_LINE_STRIP);
+		glVertex3f(-G_tableWidth * (0.5 - GL_MalletRange), G_tableHeight / 2, 0.005);
+		glVertex3f(-G_tableWidth * (0.5 - GL_MalletRange), -G_tableHeight / 2, 0.005);
+		glEnd();
+		glBegin(GL_LINE_LOOP);
+		double R = GL_KickOffCircle_R * G_tableWidth;
+		for (int i = 0; i < 32; ++i)
+			glVertex3f(R * cos(2 * PI / 32 * i), R * sin(2 * PI / 32 * i), 0.005);
+		glEnd();
+		glBegin(GL_LINE_STRIP);
+		glVertex3f(0, G_tableHeight / 2, 0.005);
+		glVertex3f(0, R, 0.005);
+		glEnd();
+		glBegin(GL_LINE_STRIP);
+		glVertex3f(0, -R, 0.005);
+		glVertex3f(0, -G_tableHeight / 2, 0.005);
+		glEnd();
+		glBegin(GL_TRIANGLE_STRIP);
+		R = G_goalWidth / 2 + 0.01;
+		for (int i = 8; i <= 24; ++i) {
+			glVertex3f(G_tableWidth / 2, 0, 0.005);
+			glVertex3f(G_tableWidth / 2 + R * cos(2 * PI / 32 * i), R * sin(2 * PI / 32 * i), 0.005);
+		}
+		glEnd();
+		glBegin(GL_TRIANGLE_STRIP);
+		R = G_goalWidth / 2 + 0.01;
+		for (int i = -8; i <= 8; ++i) {
+			glVertex3f(-G_tableWidth / 2, 0, 0.005);
+			glVertex3f(-G_tableWidth / 2 + R * cos(2 * PI / 32 * i), R * sin(2 * PI / 32 * i), 0.005);
+		}
+		glEnd();
+		//glPopMatrix();
 	}
 
-	// puck & mallet
+	// 绘制冰球及曲棍
 	{
 		Point pt;
 		pt = game->GetPuckPosition();
@@ -346,70 +397,94 @@ void Display()
 			pt.x(), pt.y(), 0, G_MalletHeight, G_MalletDiameter / 2, 32, 1);
 	}
 
-	if (gameMode == MainWindow) {
+	if (gameMode == MainWindow) { // 主界面显示
 		// title
 		double k = 1 / sqrt(look_eye[0] * look_eye[0] + look_eye[1] * look_eye[1]), t;
 		selectFont(80, ANSI_CHARSET, "System");
-		glPushMatrix();
+		//glPushMatrix();
 		glColor3f(0.2706, 0.1451, 0.0118);
 		t = look_eye_dis / look_eye_dis_init * 1.2;
 		glRasterPos3f(look_eye[1] * k * t, -look_eye[0] * k * t, 1.5 * t);
 		drawString(MY_GL_WINDOW_NAME);
-		glPopMatrix();
+		//glPopMatrix();
 		// press enter
 		if (flashCount < 0.6 * Word_Flash_Time) {
-			glPushMatrix();
+			//glPushMatrix();
 			selectFont(45, ANSI_CHARSET, "System");
 			glColor3f(0.15, 0.15, 0.15);
 			t = look_eye_dis / look_eye_dis_init * 1.145;
 			glRasterPos3f(look_eye[1] * k * t + look_eye[0] * k * t * 2.2,
 				-look_eye[0] * k * t + look_eye[1] * k * t * 2.2, 1 * t);
 			drawString("press ENTER to start");
-			glPopMatrix();
+			//glPopMatrix();
 		}
 		// round set
-		glPushMatrix();
+		//glPushMatrix();
 		selectFont(45, ANSI_CHARSET, "System");
-		glColor3f(0.17, 0.17, 0.17);
+		glColor3f(0.2, 0.2, 0.2);
 		t = look_eye_dis / look_eye_dis_init * 1.72;
 		glRasterPos3f(look_eye[1] * k * t, -look_eye[0] * k * t, 0.4 * t);
 		char buf[35];
-		sprintf_s(buf, "reach %2d round to WIN", roundSet);
+		sprintf_s(buf, "reach %2d round to win", roundSet);
 		drawString(buf);
-		glPopMatrix();
+		//glPopMatrix();
+		// ai choose
+		//glPushMatrix();
+		selectFont(45, ANSI_CHARSET, "System");
+		glColor3f(0.2, 0.2, 0.2);
+		t = look_eye_dis / look_eye_dis_init * 1.37;
+		glRasterPos3f(look_eye[1] * k * t + look_eye[0] * k * t * 1.2,
+			-look_eye[0] * k * t + look_eye[1] * k * t * 1.2, 1 * t);
+		sprintf_s(buf, "you will meet %s AI", AILevelName[aiLevel]);
+		drawString(buf);
+		//glPopMatrix();
 	}
-	else if (gameMode == Gaming) {
+	else if (gameMode == Gaming) { // 游戏界面显示
 		// board
 		char buf[5];
 		double k = 1 / sqrt(look_eye[0] * look_eye[0] + look_eye[1] * look_eye[1]);
 		double t = look_eye_dis / look_eye_dis_init * 0.7;
-
-		//selectFont(48, ANSI_CHARSET, "Comic Sans MS");
+		
 		selectFont(48, ANSI_CHARSET, "System");
-		glPushMatrix();
+		//glPushMatrix();
 		glColor3f(ColorBlue[0], ColorBlue[1], ColorBlue[2]);
 		glRasterPos3f(look_eye[1] * k * t, -look_eye[0] * k * t, 3 * t);
 		sprintf_s(buf, "%d", score1);
 		drawString(buf);
-		glPopMatrix();
+		//glPopMatrix();
 
-		glPushMatrix();
+		//glPushMatrix();
 		glColor3f(ColorViolet[0], ColorViolet[1], ColorViolet[2]);
 		glRasterPos3f(-look_eye[1] * k * t, look_eye[0] * k * t, 3 * t);
 		sprintf_s(buf, "%d", score2);
 		drawString(buf);
-		glPopMatrix();
+		//glPopMatrix();
 
-		glPushMatrix();
+		//glPushMatrix();
 		glColor3f(0, 0, 0);
 		glRasterPos3f(0, 0, 3 * t);
 		drawString(":");
-		glPopMatrix();
+		//glPopMatrix();
+
+		if (waitingTime > 0) {
+			//glPushMatrix();
+			selectFont(90, ANSI_CHARSET, "System");
+			glColor3f(0.9098, 0.6784, 0.4314);
+			t = look_eye_dis / look_eye_dis_init * 0.2;
+			glRasterPos3f(look_eye[1] * k * t, -look_eye[0] * k * t, 0.7 * t);
+			char buf[5];
+			if (waitingTime > GameStart_ShowingTime)
+				sprintf_s(buf, "%d", (waitingTime - GameStart_ShowingTime) / 1000 + 1);
+			else
+				sprintf_s(buf, "%s", "Go!");
+			drawString(buf);
+			//glPopMatrix();
+		}
 	}
-	else if (gameMode == Goal) {
+	else if (gameMode == Goal) { // 进球界面显示
 		double k = 1 / sqrt(look_eye[0] * look_eye[0] + look_eye[1] * look_eye[1]), t;
 		selectFont(80, ANSI_CHARSET, "System");
-		glPushMatrix();
+		//glPushMatrix();
 		if (winner == 1) {
 			glColor3f(0.0902, 0.0902, 0.6980);
 			t = look_eye_dis / look_eye_dis_init * 1.3;
@@ -422,30 +497,30 @@ void Display()
 			glRasterPos3f(look_eye[1] * k * t, -look_eye[0] * k * t, 1.3 * t);
 			drawString("You Fumbled");
 		}
-		glPopMatrix();
+		//glPopMatrix();
 
-		glPushMatrix();
+		//glPushMatrix();
 		selectFont(45, ANSI_CHARSET, "System");
 		glColor3f(0.15, 0.15, 0.15);
 		t = look_eye_dis / look_eye_dis_init * 1.22;
 		glRasterPos3f(look_eye[1] * k * t + look_eye[0] * k * t * 2.2,
 			-look_eye[0] * k * t + look_eye[1] * k * t * 2.2, 1 * t);
 		drawString("press ENTER to continue");
-		glPopMatrix();
+		//glPopMatrix();
 
-		glPushMatrix();
+		//glPushMatrix();
 		selectFont(42, ANSI_CHARSET, "System");
 		glColor3f(0.15, 0.15, 0.15);
 		t = look_eye_dis / look_eye_dis_init * 0.7;
 		glRasterPos3f(look_eye[1] * k * t + look_eye[0] * k * t * 3.6,
 			-look_eye[0] * k * t + look_eye[1] * k * t * 3.6, 0.85 * t);
 		drawString("press R to return");
-		glPopMatrix();
+		//glPopMatrix();
 	}
-	else if (gameMode == Win) {
+	else if (gameMode == Win) { // 胜利界面显示
 		double k = 1 / sqrt(look_eye[0] * look_eye[0] + look_eye[1] * look_eye[1]), t;
 		selectFont(80, ANSI_CHARSET, "System");
-		glPushMatrix();
+		//glPushMatrix();
 		if (winner == 1) {
 			glColor3f(0.0902, 0.0902, 0.6980);
 			t = look_eye_dis / look_eye_dis_init * 1.1;
@@ -458,36 +533,66 @@ void Display()
 			glRasterPos3f(look_eye[1] * k * t, -look_eye[0] * k * t, 1.3 * t);
 			drawString("You Lose");
 		}
-		glPopMatrix();
+		//glPopMatrix();
 
-		glPushMatrix();
+		//glPushMatrix();
 		selectFont(45, ANSI_CHARSET, "System");
 		glColor3f(0.15, 0.15, 0.15);
 		t = look_eye_dis / look_eye_dis_init * 1.22;
 		glRasterPos3f(look_eye[1] * k * t + look_eye[0] * k * t * 2.2,
 			-look_eye[0] * k * t + look_eye[1] * k * t * 2.2, 1 * t);
 		drawString("press ENTER to restart");
-		glPopMatrix();
+		//glPopMatrix();
 
-		glPushMatrix();
+		//glPushMatrix();
 		selectFont(42, ANSI_CHARSET, "System");
 		glColor3f(0.15, 0.15, 0.15);
 		t = look_eye_dis / look_eye_dis_init * 0.7;
 		glRasterPos3f(look_eye[1] * k * t + look_eye[0] * k * t * 3.6,
 			-look_eye[0] * k * t + look_eye[1] * k * t * 3.6, 0.85 * t);
 		drawString("press R to return");
-		glPopMatrix();
+		//glPopMatrix();
 	}
+	else if (gameMode == Pause) { //暂停界面显示
+		double k = 1 / sqrt(look_eye[0] * look_eye[0] + look_eye[1] * look_eye[1]), t;
+		if (flashCount < 0.6 * Word_Flash_Time) {
+			selectFont(80, ANSI_CHARSET, "System");
+			//glPushMatrix();
+			glColor3f(0.25, 0.25, 0.25);
+			t = look_eye_dis / look_eye_dis_init * 0.8;
+			glRasterPos3f(look_eye[1] * k * t, -look_eye[0] * k * t, 1.7 * t);
+			drawString("Pause");
+			//glPopMatrix();
+		}
 
+		//glPushMatrix();
+		selectFont(45, ANSI_CHARSET, "System");
+		glColor3f(0.15, 0.15, 0.15);
+		t = look_eye_dis / look_eye_dis_init * 1.22;
+		glRasterPos3f(look_eye[1] * k * t + look_eye[0] * k * t * 2.2,
+			-look_eye[0] * k * t + look_eye[1] * k * t * 2.2, 1 * t);
+		drawString("press ENTER to continue");
+		//glPopMatrix();
+
+		//glPushMatrix();
+		selectFont(42, ANSI_CHARSET, "System");
+		glColor3f(0.15, 0.15, 0.15);
+		t = look_eye_dis / look_eye_dis_init * 0.7;
+		glRasterPos3f(look_eye[1] * k * t + look_eye[0] * k * t * 3.6,
+			-look_eye[0] * k * t + look_eye[1] * k * t * 3.6, 0.85 * t);
+		drawString("press R to return");
+		//glPopMatrix();
+	}
 
 	glFlush();
 	glutSwapBuffers();
 }
 
 /* 映射鼠标坐标至openGL坐标
-* 坐标位置为鼠标指向的物体表面点坐标
-* 修正至Z = 0平面
-*/
+ * 坐标位置为鼠标指向的物体表面点坐标
+ * 修正至Z = 0平面
+ * 返回值始终为真，无意义
+ */
 bool GetOGLPos(int x, int y, GLdouble &rx, GLdouble &ry)
 {
 	static GLint viewport[4];
@@ -503,15 +608,6 @@ bool GetOGLPos(int x, int y, GLdouble &rx, GLdouble &ry)
 	glReadPixels(x, int(winY), 1, 1, GL_DEPTH_COMPONENT, GL_FLOAT, &winZ);
 	gluUnProject(winX, winY, winZ, modelview, projection, viewport, &posX, &posY, &posZ);
 	//std::cout << "get " << posX << " " << posY << " " << posZ << std::endl;
-
-	// 第一次出界判定
-	//if (posX < -G_tableWidth / 2 - 0.01 || posX > G_tableWidth / 2 + 0.01
-	//	|| posY < -G_tableHeight / 2 - 0.01 || posY > G_tableHeight / 2 + 0.01
-	//	|| posZ < -0.01 || posZ > G_MalletHeight + 0.01) {
-	//	// out of table
-	//	//std::cout << "out1" << std::endl;
-	//	//return false;
-	//}
 	// 修正点击在边界或圆盘上的情况
 	if (posZ > 1e-5 || posZ < -1e-5) {
 		// 不在桌面上，需要进行修整
@@ -520,15 +616,7 @@ bool GetOGLPos(int x, int y, GLdouble &rx, GLdouble &ry)
 		posY += k * (look_eye[1] - posY);
 		posZ = 0;
 	}
-	// 第二次出界判定
-	//if (posX < -G_tableWidth / 2 - 0.001 || posX > G_tableWidth / 2 + 0.001
-	//	|| posY < -G_tableHeight / 2 - 0.001 || posY > G_tableHeight / 2 + 0.001) {
-	//	// out of table
-	//	//std::cout << "out2" << std::endl;
-	//	//return false;
-	//}
 	//std::cout << "real " << posX << " " << posY << " " << posZ << std::endl;
-	//debugX = posX, debugY = posY;
 	rx = posX, ry = posY;
 	return true;
 }
@@ -542,10 +630,6 @@ void Reshape(int w, int h)
 	glMatrixMode(GL_MODELVIEW);
 }
 
-/* get mouse position
-* top-left corner : (0, 0)
-* bottom-right corner : (MYGL_WINDOW_W - 1, MYGL_WINDOW_H - 1)
-*/
 void OnMouseMove(int x, int y)
 {
 	mouseXrec = x, mouseYrec = y;
@@ -554,79 +638,75 @@ void OnMouseMove(int x, int y)
 void Mouse(int button, int state, int x, int y)
 {
 	mouseXrec = x, mouseYrec = y;
-	//std::cout << state << " " << button << std::endl;
-	if (button == GLUT_LEFT_BUTTON && state == GLUT_DOWN) {
-		// left mouse btn down
-		//std::cout << "left btn down" << std::endl;
-		//double a, b;
-		//GetOGLPos(x, y, a, b);
-	}
-	if (button == GLUT_LEFT_BUTTON && state == GLUT_UP) {
-		// left mouse btn up
-		//std::cout << "left btn down" << std::endl;
-	}
 }
 
 void Keyboard(unsigned char key, int x, int y)
 {
-	//std::cout << (int) key << " " << x << " " << y << std::endl;
-	if (gameMode == MainWindow) {
+	if (gameMode == MainWindow) { // 主界面响应回车
 		switch (key) {
 		case 13: // ENTER
 			game->Restart();
 			gameMode = Gaming;
+			waitingTime = GameStart_WaitingTime;
 			score1 = score2 = 0;
 			break;
 		}
 	}
-	else if (gameMode == Goal) {
+	else if (gameMode == Goal) { // 得分界面响应回车，R
 		switch (key) {
 		case 13: // ENTER
 			game->Restart();
+			gameMode = Gaming;
+			waitingTime = GameStart_WaitingTime;
+			break;
+		case 'r':
+			game->Restart();
+			gameMode = MainWindow;
+			flashCount = 0;
+			break;
+		}
+	}
+	else if (gameMode == Win) { // 胜利界面响应回车，R
+		switch (key) {
+		case 13: // ENTER
+			game->Restart();
+			gameMode = Gaming;
+			waitingTime = GameStart_WaitingTime;
+			score1 = score2 = 0;
+			break;
+		case 'r':
+			game->Restart();
+			gameMode = MainWindow;
+			flashCount = 0;
+			break;
+		}
+	}
+	else if (gameMode == Gaming) { // 游戏界面响应P
+		switch (key) {
+		case 'p':
+			gameMode = Pause;
+			flashCount = 0;
+			break;
+		}
+	}
+	else if (gameMode == Pause) { // 暂停界面响应回车，R
+		switch (key) {
+		case 13: // ENTER
 			gameMode = Gaming;
 			break;
 		case 'r':
 			game->Restart();
 			gameMode = MainWindow;
+			flashCount = 0;
 			break;
 		}
 	}
-	else if (gameMode == Win) {
-		switch (key) {
-		case 13: // ENTER
-			game->Restart();
-			gameMode = Gaming;
-			score1 = score2 = 0;
-			break;
-		case 'r':
-			game->Restart();
-			gameMode = MainWindow;
-			break;
-		}
-	}
-	//switch (key) {
-	//case 13: // ENTER
-	//	if (gameMode == MainWindow) {
-	//		game->Restart();
-	//		score1 = score2 = 0;
-	//	}
-	//	else if (gameMode == Goal) {
-	//		game->Restart();
-	//	}
-	//	else if (gameMode == Win) {
-	//		game->Restart();
-	//		score1 = score2 = 0;
-	//	}
-	//	break;
-	//}
 }
 
-/* 捕获左右键消息：旋转视角
-* 捕获上下键消息：伸缩镜头
-*/
 void SpecialKeys(int key, int x, int y)
 {
-	if (gameMode == Gaming || gameMode == Goal) {
+	if (gameMode == Gaming || gameMode == Goal || gameMode == Pause || gameMode == Win) {
+		// 除主界面，其余界面响应上下左右进行视点调整
 		switch (key) {
 		case GLUT_KEY_LEFT:
 			//std::cout << "LEFT" << std::endl;
@@ -644,15 +724,10 @@ void SpecialKeys(int key, int x, int y)
 			//std::cout << "DOWN" << std::endl;
 			LookPosMaintain(0, look_eye_dis_delta);
 			break;
-		case GLUT_KEY_F1:
-			debugVar = 1;
-			break;
-		case GLUT_KEY_F2:
-			debugVar = 2;
-			break;
 		}
 	}
 	else if (gameMode == MainWindow) {
+		// 主界面响应上下左右进行游戏设定
 		switch (key) {
 		case GLUT_KEY_UP:
 			++roundSet;
@@ -664,6 +739,16 @@ void SpecialKeys(int key, int x, int y)
 			if (roundSet < Game_Round_MIN)
 				roundSet = Game_Round_MIN;
 			break;
+		case GLUT_KEY_LEFT:
+			--aiLevel;
+			if (aiLevel < 0)
+				aiLevel = 0;
+			break;
+		case GLUT_KEY_RIGHT:
+			++aiLevel;
+			if (aiLevel >= Game_AI_NUM)
+				aiLevel = Game_AI_NUM - 1;
+			break;
 		}
 	}
 }
@@ -671,28 +756,40 @@ void SpecialKeys(int key, int x, int y)
 void Update(int value)
 {
 	if (gameMode == Gaming) {
-		/* call game with player mallet position & delta-time
-		* the coord of mallets has to be transed into 2D
-		* the center of plant is (0, 0)
-		*/
-		GLdouble x, y;
-		if (GetOGLPos(mouseXrec, mouseYrec, x, y)) {
-			int ret = game->Run(GAME_DELTA_TIME, x, y);
-			//ret = debugVar; debugVar = 0; // for debug
-			if (ret) {
-				if (ret == 1) ++score1, winner = 1; else ++score2, winner = 2;
-				if (score1 == roundSet || score2 == roundSet)
-					gameMode = Win;
-				else
-					gameMode = Goal;
+		if (waitingTime > 0) {
+			waitingTime -= GAME_DELTA_TIME;
+		}
+		else {
+			/* call game with player mallet position & delta-time
+			* the coord of mallets has to be transed into 2D
+			* the center of plant is (0, 0)
+			*/
+			GLdouble x, y;
+			if (GetOGLPos(mouseXrec, mouseYrec, x, y)) {
+				int ret = game->Run(GAME_DELTA_TIME, x, y);
+				if (ret) {
+					if (ret == 1) ++score1, winner = 1; else ++score2, winner = 2;
+					if (score1 == roundSet || score2 == roundSet)
+						gameMode = Win;
+					else
+						gameMode = Goal;
+				}
 			}
 		}
 	}
 	else if (gameMode == MainWindow) {
+		// 主界面闪烁提示
 		flashCount += GAME_DELTA_TIME;
 		if (flashCount >= Word_Flash_Time)
 			flashCount -= Word_Flash_Time;
+		// 主界面视角缓慢旋转
 		LookPosMaintain(look_delta_angle_shift, 0);
+	}
+	else if (gameMode == Pause) {
+		// 暂停界面闪烁提示
+		flashCount += GAME_DELTA_TIME;
+		if (flashCount >= Word_Flash_Time)
+			flashCount -= Word_Flash_Time;
 	}
 
 	/* display */
