@@ -20,10 +20,10 @@ Point Game::GetPuckPosition() const
 
 int Game::Run(int times, double x, double y)
 {
-	if (x > 2.0001) x = 2;
+	/*if (x > 2.0001) x = 2;
 	if (x < -2.0001) x = -2;
 	if (y > 1.0001) y = 1;
-	if (y < -1.0001) y = -1;
+	if (y < -1.0001) y = -1;*/
 	_playerPos = Point(x, y);
 	return 0;
 }

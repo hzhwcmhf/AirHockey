@@ -130,6 +130,7 @@
   <ItemGroup>
     <ClCompile Include="Game.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="winctrl.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Constants.h" />
@@ -137,6 +138,7 @@
     <ClInclude Include="include\glut.h" />
     <ClInclude Include="openglConst.h" />
     <ClInclude Include="stdafx.h" />
+    <ClInclude Include="winctrl.h" />
   </ItemGroup>
   <ItemGroup>
     <Library Include="lib\glut32.lib" />

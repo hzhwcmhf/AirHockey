@@ -8,7 +8,10 @@
 #include "Constants.h"
 #include "Game.h"
 
+
 Game *game;
+
+GLuint floorTexcture;
 
 GLfloat look_eye_dis;
 GLfloat look_eye[3]; // 视点位置
@@ -16,7 +19,7 @@ GLfloat look_up[3]; // 视点法向
 GLfloat look_center[3]; // 相机中点
 GLfloat lookAngle;
 
-GLfloat debugX = 0, debugY = 0;
+double debugX = 0, debugY = 0;
 int mouseXrec = 0, mouseYrec = 0;
 
 void Setup(); // 初始化设置openGL及各变量
@@ -62,6 +65,29 @@ int main(int argc, char **argv)
 	return 0;
 }
 
+bool LoadTexture(LPTSTR szFileName, GLuint &texid)   // Creates Texture From A Bitmap File
+{
+	HBITMAP hBMP;       // Handle Of The Bitmap
+	BITMAP BMP;       // Bitmap Structure
+	glGenTextures(1, &texid);      // Create The Texture
+	hBMP = (HBITMAP)LoadImage(GetModuleHandle(NULL), szFileName, IMAGE_BITMAP, 0, 0, LR_CREATEDIBSECTION | LR_LOADFROMFILE);
+	if (!hBMP)        // Does The Bitmap Exist?
+		return FALSE;       // If Not Return False
+	GetObject(hBMP, sizeof(BMP), &BMP);     // Get The Object
+											// hBMP:    Handle To Graphics Object
+											// sizeof(BMP): Size Of Buffer For Object Information
+											// &BMP:    Buffer For Object Information
+	glPixelStorei(GL_UNPACK_ALIGNMENT, 4);    // Pixel Storage Mode (Word Alignment / 4 Bytes)
+											  // Typical Texture Generation Using Data From The Bitmap
+	glBindTexture(GL_TEXTURE_2D, texid);     // Bind To The Texture ID
+	//glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR); // Linear Min Filter
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR); // Linear Mag Filter
+	//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+	glTexImage2D(GL_TEXTURE_2D, 0, 3, BMP.bmWidth, BMP.bmHeight, 0, GL_BGR_EXT, GL_UNSIGNED_BYTE, BMP.bmBits);
+	DeleteObject(hBMP);       // Delete The Object
+	return TRUE;       // Loading Was Successful
+}
 
 void Setup()
 {
@@ -84,6 +110,10 @@ void Setup()
 
 	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_NORMALIZE);
+
+	// texcture
+	LoadTexture("floor.bmp", floorTexcture);
+	//std::cout << "texture " << floorTexcture << std::endl;
 
 	// other init
 	lookAngle = look_init_angle;
@@ -147,17 +177,23 @@ void Display()
 	// floor plane
 	{
 		glPushMatrix();
+		glEnable(GL_TEXTURE_2D);
 		glBegin(GL_QUADS);
-		glColor3f(0.7255, 0.3882, 0.0353);
+		glColor3f(1, 1, 1);
 		glNormal3f(0, 0, 1);
+		glTexCoord2f(0, 0);
 		glVertex3f(G_FloorPlaneSize, -G_FloorPlaneSize, -G_TableAltitude);
 		glNormal3f(0, 0, 1);
+		glTexCoord2f(0, TileCount);
 		glVertex3f(G_FloorPlaneSize, G_FloorPlaneSize, -G_TableAltitude);
 		glNormal3f(0, 0, 1);
+		glTexCoord2f(TileCount, TileCount);
 		glVertex3f(-G_FloorPlaneSize, G_FloorPlaneSize, -G_TableAltitude);
 		glNormal3f(0, 0, 1);
+		glTexCoord2f(TileCount, 0);
 		glVertex3f(-G_FloorPlaneSize, -G_FloorPlaneSize, -G_TableAltitude);
 		glEnd();
+		glDisable(GL_TEXTURE_2D);
 		glPopMatrix();
 	}
 
@@ -178,7 +214,7 @@ void Display()
 		glEnd();
 		glPopMatrix();
 	}
-
+	
 	// table edge & side
 	{
 		glPushMatrix();
@@ -230,13 +266,19 @@ void Display()
 	}
 
 	// puck & mallet
-	Point pt;
-	pt = game->GetPuckPosition();
-	glutSolidCylinder(0.8157, 0.0157, 0.0157, pt.x(), pt.y(), 0, G_PuckHeight, G_PuckDiameter / 2, 32, 1);
-	pt = game->GetPlayerMalletPosition();
-	glutSolidCylinder(0.1765, 0.1765, 0.9765, pt.x(), pt.y(), 0, G_MalletHeight, G_MalletDiameter / 2, 32, 1);
-	pt = game->GetOpponentMalletPosition();
-	glutSolidCylinder(0.5686, 0.0039, 0.9490, pt.x(), pt.y(), 0, G_MalletHeight, G_MalletDiameter / 2, 32, 1);
+	{
+		Point pt;
+		pt = game->GetPuckPosition();
+		glutSolidCylinder(ColorRed[0], ColorRed[1], ColorRed[2],
+			pt.x(), pt.y(), 0, G_PuckHeight, G_PuckDiameter / 2, 32, 1);
+		pt = game->GetPlayerMalletPosition();
+		//std::cout << pt.x() << " " << pt.y() << std::endl;
+		glutSolidCylinder(ColorBlue[0], ColorBlue[1], ColorBlue[2],
+			pt.x(), pt.y(), 0, G_MalletHeight, G_MalletDiameter / 2, 32, 1);
+		pt = game->GetOpponentMalletPosition();
+		glutSolidCylinder(ColorViolet[0], ColorViolet[1], ColorViolet[2],
+			pt.x(), pt.y(), 0, G_MalletHeight, G_MalletDiameter / 2, 32, 1);
+	}
 
 	glFlush();
 	glutSwapBuffers();
@@ -263,28 +305,33 @@ bool GetOGLPos(int x, int y, GLdouble &rx, GLdouble &ry)
 	//std::cout << "get " << posX << " " << posY << " " << posZ << std::endl;
 
 	// 第一次出界判定
-	if (posX < -G_tableWidth / 2 - 0.01 || posX > G_tableWidth / 2 + 0.01
-		|| posY < -G_tableHeight / 2 - 0.01 || posY > G_tableHeight / 2 + 0.01
-		|| posZ < -0.01 || posZ > G_MalletHeight + 0.01) {
-		// out of table
-		//std::cout << "out1" << std::endl;
-		//return false;
-	}
+	//if (posX < -G_tableWidth / 2 - 0.01 || posX > G_tableWidth / 2 + 0.01
+	//	|| posY < -G_tableHeight / 2 - 0.01 || posY > G_tableHeight / 2 + 0.01
+	//	|| posZ < -0.01 || posZ > G_MalletHeight + 0.01) {
+	//	// out of table
+	//	//std::cout << "out1" << std::endl;
+	//	//return false;
+	//}
 	// 修正点击在边界或圆盘上的情况
 	if (posZ > 1e-5 || posZ < -1e-5) {
 		// 不在桌面上，需要进行修整
-		posX -= posZ / look_eye[2] * look_eye[0];
-		posY -= posZ / look_eye[2] * look_eye[1];
+		double k = posZ / (posZ - look_eye[2]);
+		posX += k * (look_eye[0] - posX);
+		posY += k * (look_eye[1] - posY);
 		posZ = 0;
+		/*posX -= posZ / look_eye[2] * look_eye[0];
+		posY -= posZ / look_eye[2] * look_eye[1];
+		posZ = 0;*/
 	}
 	// 第二次出界判定
-	if (posX < -G_tableWidth / 2 - 0.001 || posX > G_tableWidth / 2 + 0.001
-		|| posY < -G_tableHeight / 2 - 0.001 || posY > G_tableHeight / 2 + 0.001) {
-		// out of table
-		//std::cout << "out2" << std::endl;
-		//return false;
-	}
+	//if (posX < -G_tableWidth / 2 - 0.001 || posX > G_tableWidth / 2 + 0.001
+	//	|| posY < -G_tableHeight / 2 - 0.001 || posY > G_tableHeight / 2 + 0.001) {
+	//	// out of table
+	//	//std::cout << "out2" << std::endl;
+	//	//return false;
+	//}
 	//std::cout << "real " << posX << " " << posY << " " << posZ << std::endl;
+	//debugX = posX, debugY = posY;
 	rx = posX, ry = posY;
 	return true;
 }
@@ -315,6 +362,8 @@ void Mouse(int button, int state, int x, int y)
 	if (button == GLUT_LEFT_BUTTON && state == GLUT_DOWN) {
 		// left mouse btn down
 		//std::cout << "left btn down" << std::endl;
+		//double a, b;
+		//GetOGLPos(x, y, a, b);
 	}
 	if (button == GLUT_LEFT_BUTTON && state == GLUT_UP) {
 		// left mouse btn up
@@ -368,4 +417,17 @@ void Update(int value)
 	glutPostRedisplay();
 	/* recursive call */
 	glutTimerFunc(GAME_DELTA_TIME, Update, 0);
+}
+
+
+
+void Ground()
+{
+	glPushMatrix();
+	glBegin(GL_QUADS);
+	glTexCoord2f(1.0f, 1.0f); glVertex3f(-80.0f, 0.0f, -80.0f);
+	glTexCoord2f(0.0f, 1.0f); glVertex3f(80.0f, 0.0f, -80.0f);
+	glTexCoord2f(1.0f, 0.0f); glVertex3f(-80.0f, 0.0f, 80.0f);
+	glTexCoord2f(0.0f, 0.0f); glVertex3f(80.0f, 0.0f, 80.0f);
+	glPopMatrix();
 }
