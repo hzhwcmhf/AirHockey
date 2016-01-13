@@ -7,4 +7,7 @@
 #include <ctime>
 #include <cstdlib>
 #include <cmath>
+#include <functional>
+
 #include <Windows.h>
+#undef min

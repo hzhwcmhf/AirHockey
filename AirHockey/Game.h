@@ -22,25 +22,80 @@ public:
 	template<class T>
 	Point& operator=(const T &p)
 	{
-		std::complex<double>::operator=(*p);
+		std::complex<double>::operator=(p);
 		return *this;
 	}
+
+	/*Point& operator=(const std::complex<double> &p)
+	{
+		std::complex<double>::operator=(p);
+		return *this;
+	}*/
 };
 
+
+class Game;
+
+class AI
+{
+private:
+	Game* _game;
+public:
+	AI(Game* game) : _game(game) {};
+	Point QueryAction();
+};
 
 class Game
 {
 private:
-	const double C_malletStartDistance = 1;
+	Point _playerBoard[4], _opponentBoard[4], _board[4];
 
 	Point _playerPos, _opponentPos;
 	Point _puckPos, _puckDirection;
+	int _gameStatus;
+
+	AI *_ai;
+
+	const double C_maxTimeInterval = 1;
+	
+
+	void QueryBoardDistance(const Point &s, const Point &e, const Point p[4], double res[4]);
+	double QueryBoardDistance(const Point &s, const Point &e, const Point p[4]);
+
+	std::tuple<double, std::function<void(Point&)>> TestMalletCollisionWithPuck(const Point &s, const Point &e);
+	std::tuple<double, std::function<void(Point&)>> TestMalletCollisionWithBoard(const Point &s, const Point &e, const Point p[4]);
+	void MoveMallet(const Point &s, const Point &e, const Point p[4], Point &malletPos);
+
+	std::tuple<double, std::function<void()>> TestPuckCollisionWithBoard(const Point & s, const Point & e, const Point p[4]);
+	std::tuple<double, std::function<void()>> TestPuckCollisionWithMallet(const Point &s, const Point &e, const Point &o);
+	double MovePuck(double maxTime);
+	
+	void TestWin(int pos);
 
 public:
 	Game() {
+		_ai = new AI(this);
+
+		_playerBoard[0] = Point(-G_tableWidth / 2 + G_malletRadius, -G_tableHeight / 2 + G_malletRadius);
+		_playerBoard[1] = Point(-G_tableWidth / 6 - G_malletRadius, -G_tableHeight / 2 + G_malletRadius);
+		_playerBoard[2] = Point(-G_tableWidth / 6 - G_malletRadius, +G_tableHeight / 2 - G_malletRadius);
+		_playerBoard[3] = Point(-G_tableWidth / 2 + G_malletRadius, +G_tableHeight / 2 - G_malletRadius);
+
+		_playerBoard[0] = Point(+G_tableWidth / 6 + G_malletRadius, -G_tableHeight / 2 + G_malletRadius);
+		_playerBoard[1] = Point(+G_tableWidth / 2 - G_malletRadius, -G_tableHeight / 2 + G_malletRadius);
+		_playerBoard[2] = Point(+G_tableWidth / 2 - G_malletRadius, +G_tableHeight / 2 - G_malletRadius);
+		_playerBoard[3] = Point(+G_tableWidth / 6 + G_malletRadius, +G_tableHeight / 2 - G_malletRadius);
+
+		_board[0] = Point(-G_tableWidth / 2 + G_puckRadius, -G_tableHeight / 2 + G_puckRadius);
+		_board[1] = Point(+G_tableWidth / 2 - G_puckRadius, -G_tableHeight / 2 + G_puckRadius);
+		_board[2] = Point(+G_tableWidth / 2 - G_puckRadius, +G_tableHeight / 2 - G_puckRadius);
+		_board[3] = Point(-G_tableWidth / 2 + G_puckRadius, +G_tableHeight / 2 - G_puckRadius);
+
 		Restart();
 	}
-	~Game() {};
+	~Game() {
+		delete _ai;
+	};
 
 	Point GetPlayerMalletPosition() const;
 	Point GetOpponentMalletPosition() const;

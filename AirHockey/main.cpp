@@ -8,8 +8,20 @@
 #include "Constants.h"
 #include "Game.h"
 
+enum GameModeType {
+	MainWindow,
+	Gaming,
+	Goal,
+	Win
+};
+
+int debugVar = 0;
 
 Game *game;
+GameModeType gameMode;
+int score1, score2;
+int flashCount;
+int roundSet, winner;
 
 GLuint floorTexcture;
 
@@ -19,7 +31,6 @@ GLfloat look_up[3]; // 视点法向
 GLfloat look_center[3]; // 相机中点
 GLfloat lookAngle;
 
-double debugX = 0, debugY = 0;
 int mouseXrec = 0, mouseYrec = 0;
 
 void Setup(); // 初始化设置openGL及各变量
@@ -41,6 +52,9 @@ void Update(int value); // 间隔刷新函数
 int main(int argc, char **argv)
 {
 	game = new Game();
+	gameMode = MainWindow;
+	flashCount = 0;
+	roundSet = Game_Round_Init;
 
 	/* init opengl & creat window */
 	glutInit(&argc, argv);
@@ -80,14 +94,38 @@ bool LoadTexture(LPTSTR szFileName, GLuint &texid)   // Creates Texture From A B
 	glPixelStorei(GL_UNPACK_ALIGNMENT, 4);    // Pixel Storage Mode (Word Alignment / 4 Bytes)
 											  // Typical Texture Generation Using Data From The Bitmap
 	glBindTexture(GL_TEXTURE_2D, texid);     // Bind To The Texture ID
-	//glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+											 //glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR); // Linear Min Filter
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR); // Linear Mag Filter
-	//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+																	  //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
 	glTexImage2D(GL_TEXTURE_2D, 0, 3, BMP.bmWidth, BMP.bmHeight, 0, GL_BGR_EXT, GL_UNSIGNED_BYTE, BMP.bmBits);
 	DeleteObject(hBMP);       // Delete The Object
 	return TRUE;       // Loading Was Successful
 }
+
+GLuint WordShowLists = 0;
+
+void selectFont(int size, int charset, const char* face) {
+	HFONT hFont = CreateFontA(size, 0, 0, 0, FW_BOLD, 0, 0, 0,
+		charset, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
+		DEFAULT_QUALITY, DEFAULT_PITCH | FF_SWISS, face);
+	HFONT hOldFont = (HFONT)SelectObject(wglGetCurrentDC(), hFont);
+	DeleteObject(hOldFont);
+
+	// 申请MAX_CHAR个连续的显示列表编号
+	if (WordShowLists == 0)
+		WordShowLists = glGenLists(128);
+	// 把每个字符的绘制命令都装到对应的显示列表中
+	wglUseFontBitmaps(wglGetCurrentDC(), 0, 128, WordShowLists);
+}
+
+void drawString(const char* str)
+{
+	// 调用每个字符对应的显示列表，绘制每个字符
+	for (; *str != '\0'; ++str)
+		glCallList(WordShowLists + *str);
+}
+
 
 void Setup()
 {
@@ -164,6 +202,33 @@ void glutSolidCylinder(GLfloat red, GLfloat green, GLfloat blue,
 	glPopMatrix();
 }
 
+/* 绘制曲棍 */
+void glutSolidMallet(GLfloat red, GLfloat green, GLfloat blue,
+	GLdouble x, GLdouble y, GLdouble z, GLdouble h, GLdouble r,
+	GLint slices, GLint stacks)
+{
+	glPushMatrix();
+	// Cylinder
+	glColor3f(red - 0.02, green, blue);
+	glTranslatef(x, y, z);
+	GLUquadricObj *objCylinder = gluNewQuadric();
+	gluCylinder(objCylinder, r, r, h, slices, stacks);
+	// ball
+	glColor3f(red, green, blue);
+	glTranslatef(0, 0, h);
+	GLUquadricObj *objSphere = gluNewQuadric();
+	gluSphere(objSphere, r / 2, slices, slices);
+	// top
+	glColor3f(red, green, blue);
+	GLUquadricObj *objDisk = gluNewQuadric();
+	gluDisk(objDisk, 0, r, slices, 10);
+	// delete
+	gluDeleteQuadric(objSphere);
+	gluDeleteQuadric(objDisk);
+	gluDeleteQuadric(objCylinder);
+	glPopMatrix();
+}
+
 void Display()
 {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -197,24 +262,6 @@ void Display()
 		glPopMatrix();
 	}
 
-	// table plane
-	{
-		glPushMatrix();
-		glBegin(GL_QUADS);
-		//glColor3f(0.4392, 0.7255, 0.3137);
-		glColor3f(0.2902, 0.498, 0.2);
-		glNormal3f(0, 0, 1);
-		glVertex3f(G_tableWidth / 2, -G_tableHeight / 2, 0);
-		glNormal3f(0, 0, 1);
-		glVertex3f(G_tableWidth / 2, G_tableHeight / 2, 0);
-		glNormal3f(0, 0, 1);
-		glVertex3f(-G_tableWidth / 2, G_tableHeight / 2, 0);
-		glNormal3f(0, 0, 1);
-		glVertex3f(-G_tableWidth / 2, -G_tableHeight / 2, 0);
-		glEnd();
-		glPopMatrix();
-	}
-	
 	// table edge & side
 	{
 		glPushMatrix();
@@ -265,6 +312,24 @@ void Display()
 		glPopMatrix();
 	}
 
+	// table plane
+	{
+		glPushMatrix();
+		glBegin(GL_QUADS);
+		//glColor3f(0.4392, 0.7255, 0.3137);
+		glColor3f(0.2902, 0.498, 0.2);
+		glNormal3f(0, 0, 1);
+		glVertex3f(G_tableWidth / 2, -G_tableHeight / 2, 0);
+		glNormal3f(0, 0, 1);
+		glVertex3f(G_tableWidth / 2, G_tableHeight / 2, 0);
+		glNormal3f(0, 0, 1);
+		glVertex3f(-G_tableWidth / 2, G_tableHeight / 2, 0);
+		glNormal3f(0, 0, 1);
+		glVertex3f(-G_tableWidth / 2, -G_tableHeight / 2, 0);
+		glEnd();
+		glPopMatrix();
+	}
+
 	// puck & mallet
 	{
 		Point pt;
@@ -273,12 +338,146 @@ void Display()
 			pt.x(), pt.y(), 0, G_PuckHeight, G_PuckDiameter / 2, 32, 1);
 		pt = game->GetPlayerMalletPosition();
 		//std::cout << pt.x() << " " << pt.y() << std::endl;
-		glutSolidCylinder(ColorBlue[0], ColorBlue[1], ColorBlue[2],
+		glutSolidMallet(ColorBlue[0], ColorBlue[1], ColorBlue[2],
 			pt.x(), pt.y(), 0, G_MalletHeight, G_MalletDiameter / 2, 32, 1);
 		pt = game->GetOpponentMalletPosition();
-		glutSolidCylinder(ColorViolet[0], ColorViolet[1], ColorViolet[2],
+		glutSolidMallet(ColorViolet[0], ColorViolet[1], ColorViolet[2],
 			pt.x(), pt.y(), 0, G_MalletHeight, G_MalletDiameter / 2, 32, 1);
 	}
+
+	if (gameMode == MainWindow) {
+		// title
+		double k = 1 / sqrt(look_eye[0] * look_eye[0] + look_eye[1] * look_eye[1]), t;
+		selectFont(80, ANSI_CHARSET, "System");
+		glPushMatrix();
+		glColor3f(0.2706, 0.1451, 0.0118);
+		t = look_eye_dis / look_eye_dis_init * 1.2;
+		glRasterPos3f(look_eye[1] * k * t, -look_eye[0] * k * t, 1.5 * t);
+		drawString(MY_GL_WINDOW_NAME);
+		glPopMatrix();
+		// press enter
+		if (flashCount < 0.6 * Word_Flash_Time) {
+			glPushMatrix();
+			selectFont(45, ANSI_CHARSET, "System");
+			glColor3f(0.15, 0.15, 0.15);
+			t = look_eye_dis / look_eye_dis_init * 1.145;
+			glRasterPos3f(look_eye[1] * k * t + look_eye[0] * k * t * 2.2,
+				-look_eye[0] * k * t + look_eye[1] * k * t * 2.2, 1 * t);
+			drawString("press ENTER to start");
+			glPopMatrix();
+		}
+		// round set
+		glPushMatrix();
+		selectFont(45, ANSI_CHARSET, "System");
+		glColor3f(0.17, 0.17, 0.17);
+		t = look_eye_dis / look_eye_dis_init * 1.72;
+		glRasterPos3f(look_eye[1] * k * t, -look_eye[0] * k * t, 0.4 * t);
+		char buf[35];
+		sprintf_s(buf, "reach %2d round to WIN", roundSet);
+		drawString(buf);
+		glPopMatrix();
+	}
+	else if (gameMode == Gaming) {
+		// board
+		char buf[5];
+		double k = 1 / sqrt(look_eye[0] * look_eye[0] + look_eye[1] * look_eye[1]);
+		double t = look_eye_dis / look_eye_dis_init * 0.7;
+
+		//selectFont(48, ANSI_CHARSET, "Comic Sans MS");
+		selectFont(48, ANSI_CHARSET, "System");
+		glPushMatrix();
+		glColor3f(ColorBlue[0], ColorBlue[1], ColorBlue[2]);
+		glRasterPos3f(look_eye[1] * k * t, -look_eye[0] * k * t, 3 * t);
+		sprintf_s(buf, "%d", score1);
+		drawString(buf);
+		glPopMatrix();
+
+		glPushMatrix();
+		glColor3f(ColorViolet[0], ColorViolet[1], ColorViolet[2]);
+		glRasterPos3f(-look_eye[1] * k * t, look_eye[0] * k * t, 3 * t);
+		sprintf_s(buf, "%d", score2);
+		drawString(buf);
+		glPopMatrix();
+
+		glPushMatrix();
+		glColor3f(0, 0, 0);
+		glRasterPos3f(0, 0, 3 * t);
+		drawString(":");
+		glPopMatrix();
+	}
+	else if (gameMode == Goal) {
+		double k = 1 / sqrt(look_eye[0] * look_eye[0] + look_eye[1] * look_eye[1]), t;
+		selectFont(80, ANSI_CHARSET, "System");
+		glPushMatrix();
+		if (winner == 1) {
+			glColor3f(0.0902, 0.0902, 0.6980);
+			t = look_eye_dis / look_eye_dis_init * 1.3;
+			glRasterPos3f(look_eye[1] * k * t, -look_eye[0] * k * t, 1.4 * t);
+			drawString("You Goaled");
+		}
+		else {
+			glColor3f(0.4039, 0.2588, 0.7725);
+			t = look_eye_dis / look_eye_dis_init * 1.4;
+			glRasterPos3f(look_eye[1] * k * t, -look_eye[0] * k * t, 1.3 * t);
+			drawString("You Fumbled");
+		}
+		glPopMatrix();
+
+		glPushMatrix();
+		selectFont(45, ANSI_CHARSET, "System");
+		glColor3f(0.15, 0.15, 0.15);
+		t = look_eye_dis / look_eye_dis_init * 1.22;
+		glRasterPos3f(look_eye[1] * k * t + look_eye[0] * k * t * 2.2,
+			-look_eye[0] * k * t + look_eye[1] * k * t * 2.2, 1 * t);
+		drawString("press ENTER to continue");
+		glPopMatrix();
+
+		glPushMatrix();
+		selectFont(42, ANSI_CHARSET, "System");
+		glColor3f(0.15, 0.15, 0.15);
+		t = look_eye_dis / look_eye_dis_init * 0.7;
+		glRasterPos3f(look_eye[1] * k * t + look_eye[0] * k * t * 3.6,
+			-look_eye[0] * k * t + look_eye[1] * k * t * 3.6, 0.85 * t);
+		drawString("press R to return");
+		glPopMatrix();
+	}
+	else if (gameMode == Win) {
+		double k = 1 / sqrt(look_eye[0] * look_eye[0] + look_eye[1] * look_eye[1]), t;
+		selectFont(80, ANSI_CHARSET, "System");
+		glPushMatrix();
+		if (winner == 1) {
+			glColor3f(0.0902, 0.0902, 0.6980);
+			t = look_eye_dis / look_eye_dis_init * 1.1;
+			glRasterPos3f(look_eye[1] * k * t, -look_eye[0] * k * t, 1.4 * t);
+			drawString("You Win !");
+		}
+		else {
+			glColor3f(0.4039, 0.2588, 0.7725);
+			t = look_eye_dis / look_eye_dis_init * 1.06;
+			glRasterPos3f(look_eye[1] * k * t, -look_eye[0] * k * t, 1.3 * t);
+			drawString("You Lose");
+		}
+		glPopMatrix();
+
+		glPushMatrix();
+		selectFont(45, ANSI_CHARSET, "System");
+		glColor3f(0.15, 0.15, 0.15);
+		t = look_eye_dis / look_eye_dis_init * 1.22;
+		glRasterPos3f(look_eye[1] * k * t + look_eye[0] * k * t * 2.2,
+			-look_eye[0] * k * t + look_eye[1] * k * t * 2.2, 1 * t);
+		drawString("press ENTER to restart");
+		glPopMatrix();
+
+		glPushMatrix();
+		selectFont(42, ANSI_CHARSET, "System");
+		glColor3f(0.15, 0.15, 0.15);
+		t = look_eye_dis / look_eye_dis_init * 0.7;
+		glRasterPos3f(look_eye[1] * k * t + look_eye[0] * k * t * 3.6,
+			-look_eye[0] * k * t + look_eye[1] * k * t * 3.6, 0.85 * t);
+		drawString("press R to return");
+		glPopMatrix();
+	}
+
 
 	glFlush();
 	glutSwapBuffers();
@@ -286,7 +485,7 @@ void Display()
 
 /* 映射鼠标坐标至openGL坐标
 * 坐标位置为鼠标指向的物体表面点坐标
-* copy from http://blog.csdn.net/augusdi/article/details/38597403
+* 修正至Z = 0平面
 */
 bool GetOGLPos(int x, int y, GLdouble &rx, GLdouble &ry)
 {
@@ -319,9 +518,6 @@ bool GetOGLPos(int x, int y, GLdouble &rx, GLdouble &ry)
 		posX += k * (look_eye[0] - posX);
 		posY += k * (look_eye[1] - posY);
 		posZ = 0;
-		/*posX -= posZ / look_eye[2] * look_eye[0];
-		posY -= posZ / look_eye[2] * look_eye[1];
-		posZ = 0;*/
 	}
 	// 第二次出界判定
 	//if (posX < -G_tableWidth / 2 - 0.001 || posX > G_tableWidth / 2 + 0.001
@@ -336,14 +532,12 @@ bool GetOGLPos(int x, int y, GLdouble &rx, GLdouble &ry)
 	return true;
 }
 
-/* TODO 修正函数参数
- */
 void Reshape(int w, int h)
 {
 	glViewport(0, 0, (GLsizei)w, (GLsizei)h);
 	glMatrixMode(GL_PROJECTION);
 	glLoadIdentity();
-	gluPerspective(45, (GLfloat)w / h, 0.1, 100.0);
+	gluPerspective(look_dep_angle, (GLfloat)w / h, 0.01, 100.0);
 	glMatrixMode(GL_MODELVIEW);
 }
 
@@ -373,61 +567,134 @@ void Mouse(int button, int state, int x, int y)
 
 void Keyboard(unsigned char key, int x, int y)
 {
-	//std::cout << key << " " << x << " " << y << std::endl;
+	//std::cout << (int) key << " " << x << " " << y << std::endl;
+	if (gameMode == MainWindow) {
+		switch (key) {
+		case 13: // ENTER
+			game->Restart();
+			gameMode = Gaming;
+			score1 = score2 = 0;
+			break;
+		}
+	}
+	else if (gameMode == Goal) {
+		switch (key) {
+		case 13: // ENTER
+			game->Restart();
+			gameMode = Gaming;
+			break;
+		case 'r':
+			game->Restart();
+			gameMode = MainWindow;
+			break;
+		}
+	}
+	else if (gameMode == Win) {
+		switch (key) {
+		case 13: // ENTER
+			game->Restart();
+			gameMode = Gaming;
+			score1 = score2 = 0;
+			break;
+		case 'r':
+			game->Restart();
+			gameMode = MainWindow;
+			break;
+		}
+	}
+	//switch (key) {
+	//case 13: // ENTER
+	//	if (gameMode == MainWindow) {
+	//		game->Restart();
+	//		score1 = score2 = 0;
+	//	}
+	//	else if (gameMode == Goal) {
+	//		game->Restart();
+	//	}
+	//	else if (gameMode == Win) {
+	//		game->Restart();
+	//		score1 = score2 = 0;
+	//	}
+	//	break;
+	//}
 }
 
 /* 捕获左右键消息：旋转视角
- * 捕获上下键消息：伸缩镜头
- */
+* 捕获上下键消息：伸缩镜头
+*/
 void SpecialKeys(int key, int x, int y)
 {
-	switch (key) {
-	case GLUT_KEY_LEFT:
-		//std::cout << "LEFT" << std::endl;
-		LookPosMaintain(-look_delta_angle, 0);
-		break;
-	case GLUT_KEY_RIGHT:
-		//std::cout << "RIGHT" << std::endl;
-		LookPosMaintain(look_delta_angle, 0);
-		break;
-	case GLUT_KEY_UP:
-		//std::cout << "UP" << std::endl;
-		LookPosMaintain(0, -look_eye_dis_delta);
-		break;
-	case GLUT_KEY_DOWN:
-		//std::cout << "DOWN" << std::endl;
-		LookPosMaintain(0, look_eye_dis_delta);
-		break;
+	if (gameMode == Gaming || gameMode == Goal) {
+		switch (key) {
+		case GLUT_KEY_LEFT:
+			//std::cout << "LEFT" << std::endl;
+			LookPosMaintain(-look_delta_angle, 0);
+			break;
+		case GLUT_KEY_RIGHT:
+			//std::cout << "RIGHT" << std::endl;
+			LookPosMaintain(look_delta_angle, 0);
+			break;
+		case GLUT_KEY_UP:
+			//std::cout << "UP" << std::endl;
+			LookPosMaintain(0, -look_eye_dis_delta);
+			break;
+		case GLUT_KEY_DOWN:
+			//std::cout << "DOWN" << std::endl;
+			LookPosMaintain(0, look_eye_dis_delta);
+			break;
+		case GLUT_KEY_F1:
+			debugVar = 1;
+			break;
+		case GLUT_KEY_F2:
+			debugVar = 2;
+			break;
+		}
+	}
+	else if (gameMode == MainWindow) {
+		switch (key) {
+		case GLUT_KEY_UP:
+			++roundSet;
+			if (roundSet > Game_Round_MAX)
+				roundSet = Game_Round_MAX;
+			break;
+		case GLUT_KEY_DOWN:
+			--roundSet;
+			if (roundSet < Game_Round_MIN)
+				roundSet = Game_Round_MIN;
+			break;
+		}
 	}
 }
 
 void Update(int value)
 {
-	/* call game with player mallet position & delta-time
-	 * the coord of mallets has to be transed into 2D
-	 * the center of plant is (0, 0)
-	 */
-	GLdouble x, y;
-	if (GetOGLPos(mouseXrec, mouseYrec, x, y)) {
-		int ret = game->Run(GAME_DELTA_TIME, x, y);
-		if (ret) std::cout << "game result " << ret << std::endl;
+	if (gameMode == Gaming) {
+		/* call game with player mallet position & delta-time
+		* the coord of mallets has to be transed into 2D
+		* the center of plant is (0, 0)
+		*/
+		GLdouble x, y;
+		if (GetOGLPos(mouseXrec, mouseYrec, x, y)) {
+			int ret = game->Run(GAME_DELTA_TIME, x, y);
+			//ret = debugVar; debugVar = 0; // for debug
+			if (ret) {
+				if (ret == 1) ++score1, winner = 1; else ++score2, winner = 2;
+				if (score1 == roundSet || score2 == roundSet)
+					gameMode = Win;
+				else
+					gameMode = Goal;
+			}
+		}
+	}
+	else if (gameMode == MainWindow) {
+		flashCount += GAME_DELTA_TIME;
+		if (flashCount >= Word_Flash_Time)
+			flashCount -= Word_Flash_Time;
+		LookPosMaintain(look_delta_angle_shift, 0);
 	}
 
 	/* display */
 	glutPostRedisplay();
 	/* recursive call */
 	glutTimerFunc(GAME_DELTA_TIME, Update, 0);
-}
-
-
-
-void Ground()
-{
-	glPushMatrix();
-	glBegin(GL_QUADS);
-	glTexCoord2f(1.0f, 1.0f); glVertex3f(-80.0f, 0.0f, -80.0f);
-	glTexCoord2f(0.0f, 1.0f); glVertex3f(80.0f, 0.0f, -80.0f);
-	glTexCoord2f(1.0f, 0.0f); glVertex3f(-80.0f, 0.0f, 80.0f);
-	glTexCoord2f(0.0f, 0.0f); glVertex3f(80.0f, 0.0f, 80.0f);
-	glPopMatrix();
 }
