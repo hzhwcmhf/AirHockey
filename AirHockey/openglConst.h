@@ -12,17 +12,19 @@ const int MYGL_WINDOW_POS_X = 200; // 窗口位置X
 const int MYGL_WINDOW_POS_Y = 200; // 窗口位置Y
 const char MY_GL_WINDOW_NAME[] = "AirHockey"; // 游戏标题
 
-const GLfloat look_init_angle = 45; // 初始视角45deg
+const GLfloat look_init_angle = 30; // 初始视角45deg
 const GLfloat look_delta_angle = 1; // 旋转视角间隔1deg
 const GLfloat look_delta_angle_shift = 0.016; // 主界面旋转视角间隔0.016deg
 
 /* 视点距离原点距离
- * 变化范围 5.5~9.1
+ * 变化范围 5.5~10.1
  * 变化间隔 0.2
  * 初始设置 6.5
+ * 基础为桌面长 4
  */
-const GLfloat look_eye_dis_init = 6.5; 
-const GLfloat look_eye_dis_max = 9.1;
+const GLfloat look_eye_dis_init = 6.5;
+const GLfloat look_eye_dis_base = 4;
+const GLfloat look_eye_dis_max = 10.1;
 const GLfloat look_eye_dis_min = 5.5;
 const GLfloat look_eye_dis_delta = 0.2;
 const GLfloat look_scn_dis = 1; // 视点方向某一距离，无意义常量

@@ -169,6 +169,8 @@ void Setup()
 	lookAngle = look_init_angle;
 	look_eye_dis = look_eye_dis_init;
 	LookPosMaintain(0, 0);
+
+	glutGet(GLUT_ELAPSED_TIME);
 }
 
 void LookPosMaintain(GLfloat delta, GLfloat shift)
@@ -755,9 +757,15 @@ void SpecialKeys(int key, int x, int y)
 
 void Update(int value)
 {
+	int game_delta_time_real = glutGet(GLUT_ELAPSED_TIME);
+	//int game_delta_time_real = GLUT_ELAPSED_TIME;
+	if (game_delta_time_real > 2 * GAME_DELTA_TIME)
+		game_delta_time_real = 2 * GAME_DELTA_TIME;
+	//std::cout << game_delta_time_real << std::endl;
+
 	if (gameMode == Gaming) {
 		if (waitingTime > 0) {
-			waitingTime -= GAME_DELTA_TIME;
+			waitingTime -= game_delta_time_real;
 		}
 		else {
 			/* call game with player mallet position & delta-time
@@ -766,7 +774,7 @@ void Update(int value)
 			*/
 			GLdouble x, y;
 			if (GetOGLPos(mouseXrec, mouseYrec, x, y)) {
-				int ret = game->Run(GAME_DELTA_TIME, x, y);
+				int ret = game->Run(game_delta_time_real, x, y);
 				if (ret) {
 					if (ret == 1) ++score1, winner = 1; else ++score2, winner = 2;
 					if (score1 == roundSet || score2 == roundSet)
@@ -779,7 +787,7 @@ void Update(int value)
 	}
 	else if (gameMode == MainWindow) {
 		// 主界面闪烁提示
-		flashCount += GAME_DELTA_TIME;
+		flashCount += game_delta_time_real;
 		if (flashCount >= Word_Flash_Time)
 			flashCount -= Word_Flash_Time;
 		// 主界面视角缓慢旋转
@@ -787,7 +795,7 @@ void Update(int value)
 	}
 	else if (gameMode == Pause) {
 		// 暂停界面闪烁提示
-		flashCount += GAME_DELTA_TIME;
+		flashCount += game_delta_time_real;
 		if (flashCount >= Word_Flash_Time)
 			flashCount -= Word_Flash_Time;
 	}
@@ -795,5 +803,5 @@ void Update(int value)
 	/* display */
 	glutPostRedisplay();
 	/* recursive call */
-	glutTimerFunc(GAME_DELTA_TIME, Update, 0);
+	glutTimerFunc(game_delta_time_real, Update, 0);
 }
