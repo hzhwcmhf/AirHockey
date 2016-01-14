@@ -35,6 +35,7 @@ GLfloat look_center[3]; // 相机中点
 GLfloat lookAngle; // 视角
 
 int mouseXrec, mouseYrec; // 鼠标位置
+int pre_game_time;
 
 void Setup(); // 初始化设置openGL及各变量
 void Display(); // 显示
@@ -170,7 +171,7 @@ void Setup()
 	look_eye_dis = look_eye_dis_init;
 	LookPosMaintain(0, 0);
 
-	glutGet(GLUT_ELAPSED_TIME);
+	pre_game_time = glutGet(GLUT_ELAPSED_TIME);
 }
 
 void LookPosMaintain(GLfloat delta, GLfloat shift)
@@ -758,10 +759,17 @@ void SpecialKeys(int key, int x, int y)
 void Update(int value)
 {
 	int game_delta_time_real = glutGet(GLUT_ELAPSED_TIME);
+	game_delta_time_real -= pre_game_time;
+	pre_game_time += game_delta_time_real;
 	//int game_delta_time_real = GLUT_ELAPSED_TIME;
-	if (game_delta_time_real > 2 * GAME_DELTA_TIME)
-		game_delta_time_real = 2 * GAME_DELTA_TIME;
-	//std::cout << game_delta_time_real << std::endl;
+	//std::cout << game_delta_time_real << " " << pre_game_time << std::endl;
+	if (game_delta_time_real > GAME_DELTA_TIME_LIMIT_X * GAME_DELTA_TIME)
+		game_delta_time_real = GAME_DELTA_TIME;
+	if (game_delta_time_real < GAME_DELTA_TIME)
+		game_delta_time_real = GAME_DELTA_TIME;
+	
+	//game_delta_time_real = GAME_DELTA_TIME;
+	
 
 	if (gameMode == Gaming) {
 		if (waitingTime > 0) {
@@ -786,6 +794,7 @@ void Update(int value)
 		}
 	}
 	else if (gameMode == MainWindow) {
+		//std::cout << "hahaha" << std::endl;
 		// 主界面闪烁提示
 		flashCount += game_delta_time_real;
 		if (flashCount >= Word_Flash_Time)
@@ -802,6 +811,7 @@ void Update(int value)
 
 	/* display */
 	glutPostRedisplay();
+	//Display();
 	/* recursive call */
-	glutTimerFunc(game_delta_time_real, Update, 0);
+	glutTimerFunc(GAME_DELTA_TIME, Update, 0);
 }

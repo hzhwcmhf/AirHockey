@@ -41,6 +41,7 @@ const GLfloat mat_emission[] = { 0.0, 0.0, 0.0, 1.0 };
 
 /* 游戏循环时间间隔 */
 const int GAME_DELTA_TIME = 10; // ms
+const int GAME_DELTA_TIME_LIMIT_X = 10; // 最大无效间隔时间倍数，解决拖动等问题
 
 const GLint TileCount = 70; // 影响地板平铺密度
 

@@ -281,7 +281,7 @@ void Game::Restart()
 
 	srand((int)time(0));
 
-	_puckDirection = Point(G_tableHeight / 2, rand() * G_tableWidth / RAND_MAX - G_tableWidth / 2);
+	_puckDirection = Point(G_tableWidth / 2, rand() * G_tableHeight / RAND_MAX - G_tableHeight / 2);
 	_puckDirection /= abs(_puckDirection);
 	if (rand() & 1) _puckDirection = -_puckDirection;
 }
