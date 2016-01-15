@@ -135,7 +135,7 @@ void drawString(const char* str)
 
 void Setup()
 {
-	game = new Game(2);
+	game = new Game(0);
 	gameMode = MainWindow;
 	flashCount = 0;
 	roundSet = Game_Round_Init;
@@ -648,6 +648,8 @@ void Keyboard(unsigned char key, int x, int y)
 	if (gameMode == MainWindow) { // 主界面响应回车
 		switch (key) {
 		case 13: // ENTER
+			delete game;
+			game = new Game(aiLevel);
 			game->Restart();
 			gameMode = Gaming;
 			waitingTime = GameStart_WaitingTime;
