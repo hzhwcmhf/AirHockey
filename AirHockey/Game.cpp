@@ -249,7 +249,11 @@ int Game::Run(int times, double x, double y)
 {
 	Point playerTarget = Point(x, y);
 	Point opponentTarget = _ai->QueryAction(times);
-	
+
+	/*_puckDirection = Point(-1, 0);
+	_puckPos = Point(x, y);*/
+
+
 	//ÏÈ·ÅÖÃmallet
 	 MoveMallet(_playerPos, playerTarget, _playerBoard, _playerPos);
 	 MoveMallet(_opponentPos, opponentTarget, _opponentBoard, _opponentPos);
@@ -342,25 +346,30 @@ Point CrazyAI::QueryAction(int times)
 				Point b = puck + _game->_puckDirection;
 				if (Cross(a, b, mallet) < 0) target = mallet + Rotate(b - a);
 				else target = mallet + Rotate(a - b);
+				//std::cerr << "4" << std::endl;
 			} else {
 				target = puck;
 				speed = C_highSpeed;
+				//std::cerr << "3" << std::endl;
 			}
 		} else {
 			
-			if (abs(puck - goal) > abs(mallet - goal)) {			
+			if (abs(puck - goal) > abs(mallet - goal)) {	
+				//std::cerr << "1" << std::endl;
 				target = goal;
 				speed = C_highSpeed;
 			} else {
-				target = mallet + mallet - puck ;
+				//std::cerr << "2" << std::endl;
+				target = mallet + (mallet - puck) * 10.;
 				speed = C_slowSpeed;
-				if (abs(puck - _game->_board[0]) < G_malletRadius * 2 ||
+				/*if (abs(puck - _game->_board[0]) < G_malletRadius * 2 ||
 					abs(puck - _game->_board[3]) < G_malletRadius * 2)
-					puck = Point(-G_tableWidth, 0);
+					puck = Point(-G_tableWidth, 0);*/
 			}
 		}
 
 	} else {
+		//std::cerr << "5" << std::endl;
 		target = puck;
 		Point p = QueryLinesIntersection(puck, puck + _game->_puckDirection, _game->_board[0], _game->_board[3]);
 		if (QueryPointInLine(puck, puck + _game->_puckDirection, p) > 0) {
@@ -371,7 +380,7 @@ Point CrazyAI::QueryAction(int times)
 		}
 	}
 
-	if (abs(mallet - target) < G_eps) return mallet;
+	if (abs(mallet - target) < times*speed) return target;
 
 	return mallet + (target - mallet) / abs(target - mallet) * (double)times * speed;
 
