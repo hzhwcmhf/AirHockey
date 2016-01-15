@@ -1,6 +1,6 @@
 #include "stdafx.h"
 
-#include "Constants.h"
+
 #include "Game.h"
 
 inline double Cross(const Point &a, const Point &b)
@@ -248,7 +248,7 @@ Point Game::GetPuckPosition() const
 int Game::Run(int times, double x, double y)
 {
 	Point playerTarget = Point(x, y);
-	Point opponentTarget = _ai->QueryAction();
+	Point opponentTarget = _ai->QueryAction(times);
 	
 	//ÏÈ·ÅÖÃmallet
 	 MoveMallet(_playerPos, playerTarget, _playerBoard, _playerPos);
@@ -284,11 +284,95 @@ void Game::Restart()
 	_puckDirection = Point(G_tableWidth / 2, rand() * G_tableHeight / RAND_MAX - G_tableHeight / 2);
 	_puckDirection /= abs(_puckDirection);
 	if (rand() & 1) _puckDirection = -_puckDirection;
+
+	if (_ai) delete _ai;
+
+	if(_aiLevel  == 0)
+		_ai = new SimpleAI(this);
+	else if(_aiLevel == 1)
+		_ai = new NormalAI(this);
+	else if (_aiLevel == 2)
+		_ai = new CrazyAI(this);
 }
 
 
 
-Point AI::QueryAction()
+Point SimpleAI::QueryAction(int times)
 {
-	return _game->GetOpponentMalletPosition();
+	//std::cerr << times << " " << _nowStep << std::endl;
+	_nowStep += times;
+	if ((_nowStep / C_step) & 1) {
+		return C_s + (C_e - C_s) * (double)(_nowStep % C_step) / (double)C_step;
+	}else {
+		return C_e + (C_s - C_e) * (double)(_nowStep % C_step) / (double)C_step;
+	}
+}
+
+Point NormalAI::QueryAction(int times)
+{
+	Point mallet = _game->GetOpponentMalletPosition();
+	Point puck = _game->GetPuckPosition();
+
+	if(abs(puck - _game->_board[0]) < G_malletRadius * 2 || 
+		abs(puck - _game->_board[3]) < G_malletRadius * 2)
+		puck = Point(-G_tableWidth, 0);
+
+	if (abs(mallet - puck) < G_eps) return mallet;
+
+	return mallet + (puck - mallet) / abs(puck - mallet) * (double)times * C_speed;
+}
+
+
+Point CrazyAI::QueryAction(int times)
+{
+	Point mallet = _game->GetOpponentMalletPosition();
+	Point puck = _game->GetPuckPosition();
+	Point target;
+	
+	double speed = C_speed;
+
+	if (puck.x() < -G_tableWidth / 6 - G_malletRadius) {
+
+		Point goal = Point(-G_tableWidth/2 + G_malletRadius, 0);
+
+		if (_game->_puckDirection.x() > 0) {
+
+			if (abs(puck - goal) < abs(mallet - goal)) {
+				Point a = puck;
+				Point b = puck + _game->_puckDirection;
+				if (Cross(a, b, mallet) < 0) target = mallet + Rotate(b - a);
+				else target = mallet + Rotate(a - b);
+			} else {
+				target = puck;
+				speed = C_highSpeed;
+			}
+		} else {
+			
+			if (abs(puck - goal) > abs(mallet - goal)) {			
+				target = goal;
+				speed = C_highSpeed;
+			} else {
+				target = mallet + mallet - puck ;
+				speed = C_slowSpeed;
+				if (abs(puck - _game->_board[0]) < G_malletRadius * 2 ||
+					abs(puck - _game->_board[3]) < G_malletRadius * 2)
+					puck = Point(-G_tableWidth, 0);
+			}
+		}
+
+	} else {
+		target = puck;
+		Point p = QueryLinesIntersection(puck, puck + _game->_puckDirection, _game->_board[0], _game->_board[3]);
+		if (QueryPointInLine(puck, puck + _game->_puckDirection, p) > 0) {
+			double y = p.y();
+			if (y > _game->_board[3].y()) y = _game->_board[3].y() * 2 - y;
+			if (y < _game->_board[0].y()) y = _game->_board[0].y() * 2 - y;
+			if (y > -G_goalWidth / 2 && y < G_goalWidth / 2) speed = C_superSpeed;
+		}
+	}
+
+	if (abs(mallet - target) < G_eps) return mallet;
+
+	return mallet + (target - mallet) / abs(target - mallet) * (double)times * speed;
+
 }

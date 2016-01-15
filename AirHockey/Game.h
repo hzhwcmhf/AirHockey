@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Constants.h"
+
 class Point : public std::complex<double>
 {
 public:
@@ -38,11 +40,46 @@ class Game;
 
 class AI
 {
-private:
+protected:
 	Game* _game;
 public:
-	AI(Game* game) : _game(game) {};
-	Point QueryAction();
+	AI(Game* game) : _game(game) {}
+	virtual ~AI() {}
+	virtual Point QueryAction(int times) = 0;
+};
+
+class SimpleAI : public AI
+{
+private:
+	const Point C_s = Point(-G_malletStartDistance, -G_tableHeight / 4);
+	const Point C_e = Point(-G_malletStartDistance, G_tableHeight / 4);
+	const int C_step = 1000;
+	int _nowStep;
+
+public:
+	SimpleAI(Game* game) : AI(game) { _nowStep = C_step / 2; }
+	virtual Point QueryAction(int times);
+};
+
+class NormalAI : public AI
+{
+private:
+	const double C_speed = 0.002;
+public:
+	NormalAI(Game* game) : AI(game) {}
+	virtual Point QueryAction(int times);
+};
+
+class CrazyAI : public AI
+{
+private:
+	const double C_slowSpeed = 0.0005;
+	const double C_speed = 0.0015;
+	const double C_highSpeed = 0.003;
+	const double C_superSpeed = 0.004;
+public:
+	CrazyAI(Game* game) : AI(game) {}
+	virtual Point QueryAction(int times);
 };
 
 class Game
@@ -52,9 +89,11 @@ private:
 
 	Point _playerPos, _opponentPos;
 	Point _puckPos, _puckDirection;
-	int _gameStatus;
+	int _gameStatus, _aiLevel;
 
 	AI *_ai;
+	friend class NormalAI;
+	friend class CrazyAI;
 
 	const double C_maxTimeInterval = 1;
 	
@@ -73,13 +112,14 @@ private:
 	void TestWin(int pos);
 
 public:
-	Game() {
-		_ai = new AI(this);
+	Game(int aiLevel) {
+		_ai = 0;
+		_aiLevel = aiLevel;
 
-		_playerBoard[0] = Point(-G_tableWidth / 2 + G_malletRadius, -G_tableHeight / 2 + G_malletRadius);
-		_playerBoard[1] = Point(-G_tableWidth / 6 - G_malletRadius, -G_tableHeight / 2 + G_malletRadius);
-		_playerBoard[2] = Point(-G_tableWidth / 6 - G_malletRadius, +G_tableHeight / 2 - G_malletRadius);
-		_playerBoard[3] = Point(-G_tableWidth / 2 + G_malletRadius, +G_tableHeight / 2 - G_malletRadius);
+		_opponentBoard[0] = Point(-G_tableWidth / 2 + G_malletRadius, -G_tableHeight / 2 + G_malletRadius);
+		_opponentBoard[1] = Point(-G_tableWidth / 6 - G_malletRadius, -G_tableHeight / 2 + G_malletRadius);
+		_opponentBoard[2] = Point(-G_tableWidth / 6 - G_malletRadius, +G_tableHeight / 2 - G_malletRadius);
+		_opponentBoard[3] = Point(-G_tableWidth / 2 + G_malletRadius, +G_tableHeight / 2 - G_malletRadius);
 
 		_playerBoard[0] = Point(+G_tableWidth / 6 + G_malletRadius, -G_tableHeight / 2 + G_malletRadius);
 		_playerBoard[1] = Point(+G_tableWidth / 2 - G_malletRadius, -G_tableHeight / 2 + G_malletRadius);
@@ -94,7 +134,7 @@ public:
 		Restart();
 	}
 	~Game() {
-		delete _ai;
+		if(_ai) delete _ai;
 	};
 
 	Point GetPlayerMalletPosition() const;

@@ -135,7 +135,7 @@ void drawString(const char* str)
 
 void Setup()
 {
-	game = new Game();
+	game = new Game(2);
 	gameMode = MainWindow;
 	flashCount = 0;
 	roundSet = Game_Round_Init;
