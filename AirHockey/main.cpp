@@ -1,4 +1,4 @@
-//#pragma comment(linker, "/subsystem:\"windows\"   /entry:\"mainCRTStartup\"")
+#pragma comment(linker, "/subsystem:\"windows\"   /entry:\"mainCRTStartup\"")
 
 #include "stdafx.h"
 #include "glut.h"
@@ -35,7 +35,7 @@ GLfloat look_center[3]; // 相机中点
 GLfloat lookAngle; // 视角
 
 int mouseXrec, mouseYrec; // 鼠标位置
-int pre_game_time;
+int pre_game_time; // 前一次记录的游戏时间
 
 void Setup(); // 初始化设置openGL及各变量
 void Display(); // 显示
